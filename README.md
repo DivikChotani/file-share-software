@@ -17,7 +17,7 @@ This project provides a utility for sharing and receiving directories via a comm
 2. **C++ Compiler**: The project requires `g++` or any C++17-compatible compiler.
 3. **GitHub Personal Access Token (PAT)**:
    - A GitHub PAT is required for authentication when accessing the `git-repo`.
-   - See [How to Generate a PAT](#personal-access-token-pat-requirement) for more details.
+   
 
 ---
 
