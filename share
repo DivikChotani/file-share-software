@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# Function to resolve and verify the provided directory path
+resolve_and_verify_path() {
+    local INPUT_PATH=$1
+    local RESOLVED_PATH
+
+    # Check for empty input
+    if [ -z "$INPUT_PATH" ]; then
+        return 1
+    fi
+
+    # Check if it's an absolute path
+    if [[ "$INPUT_PATH" == /* ]]; then
+        RESOLVED_PATH=$(realpath "$INPUT_PATH" 2>/dev/null)
+    else
+        # Expand ~, $HOME, and shortcuts
+        RESOLVED_PATH=$(eval echo "$INPUT_PATH")
+        RESOLVED_PATH=$(realpath "$RESOLVED_PATH" 2>/dev/null)
+    fi
+
+    # Check if the resolved path exists and is a directory
+    if [ -z "$RESOLVED_PATH" ] || [ ! -d "$RESOLVED_PATH" ]; then
+        return 1
+    fi
+
+    # Return the resolved absolute path
+    echo "$RESOLVED_PATH"
+    return 0
+}
+
+# Prompt for SHARE_OR_RECEIVE if not provided
+if [ -z "$1" ]; then
+    read -p "Enter 'share' or 'receive': " SHARE_OR_RECEIVE
+else
+    SHARE_OR_RECEIVE=$1
+fi
+
+# Validate SHARE_OR_RECEIVE input
+while [[ "$SHARE_OR_RECEIVE" != "share" && "$SHARE_OR_RECEIVE" != "receive" ]]; do
+    echo "Invalid input. Please enter 'share' or 'receive'."
+    read -p "Enter 'share' or 'receive': " SHARE_OR_RECEIVE
+done
+
+# Prompt for DIRECTORY_TO_COMMIT if not provided
+if [ -z "$2" ]; then
+    if [ "$SHARE_OR_RECEIVE" == "share" ]; then
+        read -p "Enter the directory to share: " DIRECTORY_TO_COMMIT
+    else
+        read -p "Enter the path where you want to receive the directory: " DIRECTORY_TO_COMMIT
+    fi
+else
+    DIRECTORY_TO_COMMIT=$2
+fi
+
+# Resolve and verify the provided directory
+ABS_DIRECTORY_TO_COMMIT=$(resolve_and_verify_path "$DIRECTORY_TO_COMMIT")
+EXIT_CODE=$? 
+
+# Loop until a valid directory is provided
+while [ "$EXIT_CODE" -ne 0 ]; do
+    echo "Invalid directory path: $DIRECTORY_TO_COMMIT"
+    read -p "Please enter a valid directory path: " DIRECTORY_TO_COMMIT
+    ABS_DIRECTORY_TO_COMMIT=$(resolve_and_verify_path "$DIRECTORY_TO_COMMIT")
+    EXIT_CODE=$?
+done
+
+# Prompt for BRANCH_NAME if not provided
+if [ -z "$3" ]; then
+    if [ "$SHARE_OR_RECEIVE" == "share" ]; then
+        read -p "Enter who you want to share it to: " BRANCH_NAME
+    else
+        read -p "Enter a temporary receiver name: " BRANCH_NAME
+    fi
+else
+    BRANCH_NAME=$3
+fi
+
+# Paths to compiled programs
+SHARE_PATH="./share-file"      # Path to your compiled "share" C++ program
+RECEIVE_PATH="./receive"    # Path to your compiled "receive" C++ program
+
+# Navigate to the Git repository
+GIT_REPO_PATH="./git-repo"
+if [ ! -d "$GIT_REPO_PATH/.git" ]; then
+    echo "Error: $GIT_REPO_PATH is not a Git repository."
+    exit 1
+fi
+cd "$GIT_REPO_PATH" || { echo "Failed to navigate to $GIT_REPO_PATH"; exit 1; }
+
+# Ensure the compiled program exists
+if [[ "$SHARE_OR_RECEIVE" == "share" && ! -f "$SHARE_PATH" ]]; then
+    echo "Error: Compiled 'share' program '$SHARE_PATH' not found."
+    exit 1
+elif [[ "$SHARE_OR_RECEIVE" == "receive" && ! -f "$RECEIVE_PATH" ]]; then
+    echo "Error: Compiled 'receive' program '$RECEIVE_PATH' not found."
+    exit 1
+fi
+
+# Run the appropriate program
+if [[ "$SHARE_OR_RECEIVE" == "share" ]]; then
+    echo "Running the 'share' program..."
+    "$SHARE_PATH" "$ABS_DIRECTORY_TO_COMMIT" "$BRANCH_NAME"
+elif [[ "$SHARE_OR_RECEIVE" == "receive" ]]; then
+    echo "Running the 'receive' program..."
+    "$RECEIVE_PATH" "$BRANCH_NAME" "$ABS_DIRECTORY_TO_COMMIT"
+fi
+
+# Exit with the program's exit code
+EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+    echo "Program completed successfully."
+else
+    echo "Program failed with exit code: $EXIT_CODE"
+fi
+
+exit $EXIT_CODE

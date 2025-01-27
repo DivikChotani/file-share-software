@@ -1,0 +1,17 @@
+.git
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.swp
+.swo
+
+
+
+# Editor/IDE-specific files
+.vscode/
+.idea/
+
+
